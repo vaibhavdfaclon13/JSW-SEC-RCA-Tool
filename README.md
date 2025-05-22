@@ -53,16 +53,19 @@ You can also choose to include demo applications to help you get started quickly
 
 2. **Explore the Code**: Familiarize yourself with the repository structure
 
-3. **Run Demo App** (if installed):
+3. **Enter the demo app** (if installed):
+   ```bash
+   cd demo- {PressTab}
+   ```
+4. **Run Demo App** (if installed):
    ```bash
    ./run.sh
    ```
+5. **Develop Your Application**: Integrate the SDK components into your app
 
-4. **Develop Your Application**: Integrate the SDK components into your app
+6. **Test Your Integration**: Ensure all features work as expected
 
-5. **Test Your Integration**: Ensure all features work as expected
-
-6. **Build for Production**: Create optimized production builds
+7. **Build for Production**: Create optimized production builds
 
 ## Production Readiness
 
