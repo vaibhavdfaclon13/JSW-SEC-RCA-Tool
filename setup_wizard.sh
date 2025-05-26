@@ -24,12 +24,12 @@ METADATA_FILE=".iosense_metadata.json"
 
 # Repository URLs
 # Angular repositories
-ANGULAR_USERID_CONNECTOR="https://github.com/Faclon-Labs/connector-userid-js.git"
+ANGULAR_USERID_CONNECTOR="https://github.com/Faclon-Labs/connector-userid-ts.git"
 ANGULAR_TOKEN_CONNECTOR="https://github.com/iosense/angular-connector-token.git"
 ANGULAR_DEMO="https://github.com/HenilJainIO/demo-angular-app.git"
 
 # React repositories
-REACT_USERID_CONNECTOR="https://github.com/Faclon-Labs/connector-userid-js.git"
+REACT_USERID_CONNECTOR="https://github.com/Faclon-Labs/connector-userid-ts.git"
 REACT_TOKEN_CONNECTOR="https://github.com/iosense/react-connector-token.git"
 REACT_DEMO="https://github.com/HenilJainIO/demo-react-app.git"
 
