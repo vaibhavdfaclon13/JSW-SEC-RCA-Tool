@@ -17,7 +17,9 @@ import {
   ResponsiveContainer,
 } from "recharts"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import DataAccess from "connector-userid-ts/connectors/DataAccess"
+import dynamic from 'next/dynamic'
+
+// Remove the dynamic import since we're handling it differently
 
 interface TagGraphModalProps {
   isOpen: boolean
@@ -28,16 +30,41 @@ interface TagGraphModalProps {
   deviceId: string
   sensorIds: string[]
   endTime: string // ISO date string
+  userId: string
 }
 
-// Hardcoded DataAccess config
-const dataAccess = new DataAccess({
-  userId: '66792886ef26fb850db806c5',
-  dataUrl: 'datads.iosense.io',
-  dsUrl: 'ds-server.iosense.io',
-  onPrem: false,
-  tz: 'UTC'
-})
+// Function to initialize DataAccess with userId
+const initializeDataAccess = (userId: string) => {
+  if (typeof window === 'undefined') return null
+  
+  // Debug DataAccess initialization
+  console.log('=== DATAACCESS INITIALIZATION DEBUG ===')
+  console.log('Passed userId:', userId)
+  console.log('Data URL:', 'datads.iosense.io')
+  console.log('DS URL:', 'datads.iosense.io')
+  console.log('On Prem:', false)
+  
+  try {
+    const DataAccessClass = require('connector-userid-ts').default
+    console.log('DataAccess class loaded:', DataAccessClass)
+    
+    const dataAccess = new DataAccessClass({
+      userId: userId,
+      dataUrl: 'datads.iosense.io',
+      dsUrl: 'datads.iosense.io',
+      onPrem: false,
+      tz: 'UTC'
+    })
+    console.log('DataAccess instance created:', dataAccess)
+    console.log('DataAccess methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(dataAccess)))
+    console.log('=== END DATAACCESS INITIALIZATION ===')
+    return dataAccess
+  } catch (error) {
+    console.error('Error initializing DataAccess:', error)
+    console.log('=== END DATAACCESS INITIALIZATION (ERROR) ===')
+    return null
+  }
+}
 
 export function TagGraphModal({
   isOpen,
@@ -48,54 +75,165 @@ export function TagGraphModal({
   deviceId,
   sensorIds,
   endTime,
+  userId,
 }: TagGraphModalProps) {
   const [activeTab, setActiveTab] = useState<string>(sensorIds[0] || '')
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [sensorData, setSensorData] = useState<Record<string, Array<{ time: string; value: number }>>>({})
+  const [dataAccess, setDataAccess] = useState<any>(null)
+
+  // Initialize DataAccess when component mounts or userId changes
+  useEffect(() => {
+    console.log('=== TAGMODAL USERID EFFECT ===')
+    console.log('Received userId:', userId)
+    if (userId) {
+      const dataAccessInstance = initializeDataAccess(userId)
+      setDataAccess(dataAccessInstance)
+      console.log('DataAccess set:', !!dataAccessInstance)
+    } else {
+      console.log('No userId provided, cannot initialize DataAccess')
+    }
+    console.log('=== END TAGMODAL USERID EFFECT ===')
+  }, [userId])
 
   useEffect(() => {
-    if (isOpen && deviceId && sensorIds.length > 0) {
+    if (isOpen && deviceId && sensorIds.length > 0 && dataAccess) {
       fetchSensorData()
     }
-    // eslint-disable-next-line
-  }, [isOpen, deviceId, JSON.stringify(sensorIds), endTime])
+  }, [isOpen, deviceId, sensorIds, endTime, dataAccess])
 
   const fetchSensorData = async () => {
+    console.log('=== FETCHSENSORDATA START ===')
+    console.log('Modal Props:', { tag, deviceId, sensorIds, endTime })
+    
     setLoading(true)
     setError(null)
+
     try {
+      // Check if dataAccess is available
+      if (!dataAccess) {
+        console.warn("No dataAccess available, using dummy data")
+        const dummyData = generateDummyData(sensorIds, tag);
+        setSensorData(dummyData);
+        return;
+      }
+      console.log('DataAccess instance available:', !!dataAccess)
+
+      // Calculate start time (1 day before end time for better debugging)
       const endDate = new Date(endTime)
-      const startDate = new Date(endDate.getTime() - 2 * 24 * 60 * 60 * 1000)
-      const dataPromises = sensorIds.map(async (sensorId) => {
-        const data = await dataAccess.dataQuery({
+      const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000) // Changed to 1 day
+      
+      console.log('Time Range:')
+      console.log('  Start Date:', startDate.toISOString())
+      console.log('  End Date:', endDate.toISOString())
+      console.log('  Device ID:', deviceId)
+      console.log('  Sensor IDs:', sensorIds)
+
+      // Fetch data for each sensor
+      const dataPromises = sensorIds.map(async (sensorId, index) => {
+        console.log(`--- Processing Sensor ${index + 1}/${sensorIds.length}: ${sensorId} ---`)
+        
+        const queryParams = {
           deviceId,
           sensorList: [sensorId],
           startTime: startDate.toISOString(),
           endTime: endDate.toISOString(),
           cal: true,
           alias: true,
-        })
-        return {
-          sensorId,
-          data: data.map((point: any) => ({
-            time: new Date(point.time).toLocaleTimeString(),
-            value: parseFloat(point.value) || 0,
-          })),
+        }
+        
+        console.log('DataQuery params:', queryParams)
+        
+        try {
+          const data = await dataAccess.dataQuery(queryParams)
+          console.log(`Sensor ${sensorId} raw response:`, data)
+          console.log(`Sensor ${sensorId} data points count:`, data?.length || 0)
+          
+          if (data && data.length > 0) {
+            console.log(`First data point for ${sensorId}:`, data[0])
+            console.log(`Last data point for ${sensorId}:`, data[data.length - 1])
+          }
+
+          // Format data for the chart
+          const formattedData = data.map((point: any, idx: number) => {
+            const formatted = {
+              time: new Date(point.time).toLocaleTimeString(),
+              value: parseFloat(point.value) || 0,
+            }
+            if (idx < 3) {
+              console.log(`Formatted point ${idx} for ${sensorId}:`, formatted)
+            }
+            return formatted
+          })
+
+          return {
+            sensorId,
+            data: formattedData,
+          }
+        } catch (sensorError: any) {
+          console.error(`Error fetching data for sensor ${sensorId}:`, sensorError)
+          return {
+            sensorId,
+            data: [],
+            error: sensorError.message || 'Unknown error'
+          }
         }
       })
+
+      console.log('Waiting for all sensor data promises...')
       const results = await Promise.all(dataPromises)
-      const formattedData = results.reduce((acc, { sensorId, data }) => {
-        acc[sensorId] = data
+      console.log('All sensor promises resolved:', results)
+      
+      const formattedData = results.reduce((acc, { sensorId, data, error }) => {
+        if (error) {
+          console.warn(`Sensor ${sensorId} had error:`, error)
+        }
+        acc[sensorId] = data || []
         return acc
       }, {} as Record<string, Array<{ time: string; value: number }>>)
+
+      console.log('Final formatted data:', formattedData)
+      console.log('Data summary:', Object.entries(formattedData).map(([id, data]) => ({ sensor: id, points: data.length })))
+      
       setSensorData(formattedData)
     } catch (err: any) {
+      console.error('=== FETCHSENSORDATA ERROR ===')
+      console.error('Error details:', err)
+      console.error('Error stack:', err.stack)
+      
+      // Generate dummy data on error
+      console.log('Generating fallback dummy data due to error')
+      const dummyData = generateDummyData(sensorIds, tag);
+      setSensorData(dummyData);
+      
       setError(err.message || 'Failed to fetch sensor data')
-      setSensorData({})
     } finally {
       setLoading(false)
+      console.log('=== FETCHSENSORDATA END ===')
     }
+  }
+  
+  // Function to generate realistic dummy data
+  const generateDummyData = (sensorIds: string[], tag: string) => {
+    const baseValue = tag.toLowerCase() === 'critical' ? 90 :
+                     tag.toLowerCase() === 'high' ? 75 :
+                     tag.toLowerCase() === 'medium' ? 60 :
+                     tag.toLowerCase() === 'low' ? 45 : 30;
+                     
+    const variance = tag.toLowerCase() === 'critical' ? 15 :
+                    tag.toLowerCase() === 'high' ? 12 :
+                    tag.toLowerCase() === 'medium' ? 10 :
+                    tag.toLowerCase() === 'low' ? 8 : 5;
+    
+    // Generate dummy data for each sensor
+    return sensorIds.reduce((acc, sensorId) => {
+      acc[sensorId] = Array.from({ length: 24 }, (_, i) => ({
+        time: `${i}:00`,
+        value: Math.max(0, Math.min(100, baseValue + (Math.random() - 0.5) * variance)),
+      }));
+      return acc;
+    }, {} as Record<string, Array<{ time: string; value: number }>>);
   }
 
   const getTagColor = (tag: string) => {
