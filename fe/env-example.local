@@ -1,0 +1,21 @@
+# Environment variables for JSW-SEC-RCA-Tool Frontend
+# Note: The userId is now passed as props from the application, no need for NEXT_PUBLIC_USER_ID
+
+# DataAccess configuration (these can remain as fallbacks if needed)
+# NEXT_PUBLIC_DATA_URL=datads.iosense.io
+# NEXT_PUBLIC_DS_URL=datads.iosense.io
+# NEXT_PUBLIC_ON_PREM=false
+
+# The TagGraphModal now uses the userId that's already authenticated in the main application
+# through the useUserId hook and passed down via component props
+
+# Copy this file to .env.local and update with your actual values
+# DataAccess Configuration for Tag Graph Modal
+NEXT_PUBLIC_USER_ID=your_user_id_here
+NEXT_PUBLIC_DATA_URL=datads.iosense.io
+NEXT_PUBLIC_DS_URL=datads.iosense.io
+NEXT_PUBLIC_ON_PREM=false
+
+# Note: The TagGraphModal needs these environment variables to initialize DataAccess
+# The main page uses BruceHandler with 'datads.iosense.io' hardcoded
+# Make sure your user has access to the iosense data API 
