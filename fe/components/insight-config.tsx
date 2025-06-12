@@ -24,7 +24,7 @@ export function InsightConfig({ userId, selectedInsightId, onInsightSelect, onLo
   // Initialize Bruce Handler with the correct dataUrl
   const bruceHandler = new BruceHandler({
     userId: userId,
-    dataUrl: 'datads.iosense.io',
+    dataUrl: 'datads-ext.iosense.io',
     onPrem: false
   })
 
@@ -33,7 +33,7 @@ export function InsightConfig({ userId, selectedInsightId, onInsightSelect, onLo
     setError('')
     
     try {
-      console.log('Fetching insights for userId:', userId, 'from:', 'https://datads.iosense.io')
+      console.log('Fetching insights for userId:', userId, 'from:', 'https://datads-ext.iosense.io')
       
       const userInsights = await bruceHandler.fetchUserInsights({
         pagination: { page: 1, count: 100 }, // Get up to 100 insights

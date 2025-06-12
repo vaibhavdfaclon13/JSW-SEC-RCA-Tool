@@ -49,7 +49,7 @@ function DiagnosticDashboard({ userId, selectedInsightId }: DiagnosticDashboardP
   // Initialize Bruce Handler
   const bruceHandler = selectedInsightId ? new BruceHandler({
     userId: userId,
-    dataUrl: 'datads.iosense.io',
+    dataUrl: 'datads-ext.iosense.io',
     onPrem: false
   }) : null
 

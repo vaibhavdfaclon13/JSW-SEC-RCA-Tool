@@ -18,6 +18,8 @@ import {
 } from "recharts"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import dynamic from 'next/dynamic'
+import { DataAccess } from 'connector-userid-ts'
+import logger from "@/lib/logger"
 
 // Remove the dynamic import since we're handling it differently
 
@@ -38,30 +40,30 @@ const initializeDataAccess = (userId: string) => {
   if (typeof window === 'undefined') return null
   
   // Debug DataAccess initialization
-  console.log('=== DATAACCESS INITIALIZATION DEBUG ===')
-  console.log('Passed userId:', userId)
-  console.log('Data URL:', 'datads.iosense.io')
-  console.log('DS URL:', 'datads.iosense.io')
-  console.log('On Prem:', false)
+  logger.info('=== DATAACCESS INITIALIZATION DEBUG ===')
+  logger.info('Passed userId:', userId)
+  logger.info('Data URL:', 'datads-ext.iosense.io')
+  logger.info('DS URL:', 'datads-ext.iosense.io')
+  logger.info('On Prem:', false)
   
   try {
-    const DataAccessClass = require('connector-userid-ts').default
-    console.log('DataAccess class loaded:', DataAccessClass)
+    // No need to use require as we've imported DataAccess at the top
+    logger.info('DataAccess class loaded:', DataAccess)
     
-    const dataAccess = new DataAccessClass({
+    const dataAccess = new DataAccess({
       userId: userId,
-      dataUrl: 'datads.iosense.io',
-      dsUrl: 'datads.iosense.io',
+      dataUrl: 'datads-ext.iosense.io',
+      dsUrl: 'datads-ext.iosense.io',
       onPrem: false,
       tz: 'UTC'
     })
-    console.log('DataAccess instance created:', dataAccess)
-    console.log('DataAccess methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(dataAccess)))
-    console.log('=== END DATAACCESS INITIALIZATION ===')
+    logger.info('DataAccess instance created:', dataAccess)
+    logger.info('DataAccess methods available:', Object.getOwnPropertyNames(Object.getPrototypeOf(dataAccess)))
+    logger.info('=== END DATAACCESS INITIALIZATION ===')
     return dataAccess
   } catch (error) {
-    console.error('Error initializing DataAccess:', error)
-    console.log('=== END DATAACCESS INITIALIZATION (ERROR) ===')
+    logger.error('Error initializing DataAccess:', error)
+    logger.info('=== END DATAACCESS INITIALIZATION (ERROR) ===')
     return null
   }
 }
@@ -85,16 +87,16 @@ export function TagGraphModal({
 
   // Initialize DataAccess when component mounts or userId changes
   useEffect(() => {
-    console.log('=== TAGMODAL USERID EFFECT ===')
-    console.log('Received userId:', userId)
+    logger.info('=== TAGMODAL USERID EFFECT ===')
+    logger.info('Received userId:', userId)
     if (userId) {
       const dataAccessInstance = initializeDataAccess(userId)
       setDataAccess(dataAccessInstance)
-      console.log('DataAccess set:', !!dataAccessInstance)
+      logger.info('DataAccess set:', !!dataAccessInstance)
     } else {
-      console.log('No userId provided, cannot initialize DataAccess')
+      logger.info('No userId provided, cannot initialize DataAccess')
     }
-    console.log('=== END TAGMODAL USERID EFFECT ===')
+    logger.info('=== END TAGMODAL USERID EFFECT ===')
   }, [userId])
 
   useEffect(() => {
@@ -104,8 +106,8 @@ export function TagGraphModal({
   }, [isOpen, deviceId, sensorIds, endTime, dataAccess])
 
   const fetchSensorData = async () => {
-    console.log('=== FETCHSENSORDATA START ===')
-    console.log('Modal Props:', { tag, deviceId, sensorIds, endTime })
+    logger.info('=== FETCHSENSORDATA START ===')
+    logger.info('Modal Props:', { tag, deviceId, sensorIds, endTime })
     
     setLoading(true)
     setError(null)
@@ -113,56 +115,59 @@ export function TagGraphModal({
     try {
       // Check if dataAccess is available
       if (!dataAccess) {
-        console.warn("No dataAccess available, using dummy data")
+        logger.warn("No dataAccess available, using dummy data")
         const dummyData = generateDummyData(sensorIds, tag);
         setSensorData(dummyData);
         return;
       }
-      console.log('DataAccess instance available:', !!dataAccess)
+      logger.info('DataAccess instance available:', !!dataAccess)
 
       // Calculate start time (1 day before end time for better debugging)
       const endDate = new Date(endTime)
       const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000) // Changed to 1 day
       
-      console.log('Time Range:')
-      console.log('  Start Date:', startDate.toISOString())
-      console.log('  End Date:', endDate.toISOString())
-      console.log('  Device ID:', deviceId)
-      console.log('  Sensor IDs:', sensorIds)
+      logger.info('Time Range:')
+      logger.info('  Start Date:', startDate.toISOString())
+      logger.info('  End Date:', endDate.toISOString())
+      logger.info('  Start Unix MS:', startDate.getTime())
+      logger.info('  End Unix MS:', endDate.getTime())
+      logger.info('  Device ID:', deviceId)
+      logger.info('  Sensor IDs:', sensorIds)
 
       // Fetch data for each sensor
       const dataPromises = sensorIds.map(async (sensorId, index) => {
-        console.log(`--- Processing Sensor ${index + 1}/${sensorIds.length}: ${sensorId} ---`)
+        logger.info(`--- Processing Sensor ${index + 1}/${sensorIds.length}: ${sensorId} ---`)
         
         const queryParams = {
           deviceId,
           sensorList: [sensorId],
-          startTime: startDate.toISOString(),
-          endTime: endDate.toISOString(),
+          startTime: startDate.getTime(), // Use Unix timestamp in milliseconds
+          endTime: endDate.getTime(),     // Use Unix timestamp in milliseconds
           cal: true,
           alias: true,
+          unix: false // Indicate we're using Unix timestamps
         }
         
-        console.log('DataQuery params:', queryParams)
+        logger.info('DataQuery params:', queryParams)
         
         try {
           const data = await dataAccess.dataQuery(queryParams)
-          console.log(`Sensor ${sensorId} raw response:`, data)
-          console.log(`Sensor ${sensorId} data points count:`, data?.length || 0)
+          logger.info(`Sensor ${sensorId} raw response:`, data)
+          logger.info(`Sensor ${sensorId} data points count:`, data?.length || 0)
           
           if (data && data.length > 0) {
-            console.log(`First data point for ${sensorId}:`, data[0])
-            console.log(`Last data point for ${sensorId}:`, data[data.length - 1])
+            logger.info(`First data point for ${sensorId}:`, data[0])
+            logger.info(`Last data point for ${sensorId}:`, data[data.length - 1])
           }
 
-          // Format data for the chart
+          // Format data for the chart - handle the format {timestamp: '...', D194: '131.94'} 
           const formattedData = data.map((point: any, idx: number) => {
             const formatted = {
-              time: new Date(point.time).toLocaleTimeString(),
-              value: parseFloat(point.value) || 0,
+              time: new Date(point.timestamp).toLocaleTimeString(),
+              value: parseFloat(point[sensorId] || '0'),
             }
             if (idx < 3) {
-              console.log(`Formatted point ${idx} for ${sensorId}:`, formatted)
+              logger.info(`Formatted point ${idx} for ${sensorId}:`, formatted)
             }
             return formatted
           })
@@ -172,7 +177,7 @@ export function TagGraphModal({
             data: formattedData,
           }
         } catch (sensorError: any) {
-          console.error(`Error fetching data for sensor ${sensorId}:`, sensorError)
+          logger.error(`Error fetching data for sensor ${sensorId}:`, sensorError)
           return {
             sensorId,
             data: [],
@@ -181,36 +186,36 @@ export function TagGraphModal({
         }
       })
 
-      console.log('Waiting for all sensor data promises...')
+      logger.info('Waiting for all sensor data promises...')
       const results = await Promise.all(dataPromises)
-      console.log('All sensor promises resolved:', results)
+      logger.info('All sensor promises resolved:', results)
       
       const formattedData = results.reduce((acc, { sensorId, data, error }) => {
         if (error) {
-          console.warn(`Sensor ${sensorId} had error:`, error)
+          logger.warn(`Sensor ${sensorId} had error:`, error)
         }
         acc[sensorId] = data || []
         return acc
       }, {} as Record<string, Array<{ time: string; value: number }>>)
 
-      console.log('Final formatted data:', formattedData)
-      console.log('Data summary:', Object.entries(formattedData).map(([id, data]) => ({ sensor: id, points: data.length })))
+      logger.info('Final formatted data:', formattedData)
+      logger.info('Data summary:', Object.entries(formattedData).map(([id, data]) => ({ sensor: id, points: data.length })))
       
       setSensorData(formattedData)
     } catch (err: any) {
-      console.error('=== FETCHSENSORDATA ERROR ===')
-      console.error('Error details:', err)
-      console.error('Error stack:', err.stack)
+      logger.error('=== FETCHSENSORDATA ERROR ===')
+      logger.error('Error details:', err)
+      logger.error('Error stack:', err.stack)
       
       // Generate dummy data on error
-      console.log('Generating fallback dummy data due to error')
+      logger.info('Generating fallback dummy data due to error')
       const dummyData = generateDummyData(sensorIds, tag);
       setSensorData(dummyData);
       
       setError(err.message || 'Failed to fetch sensor data')
     } finally {
       setLoading(false)
-      console.log('=== FETCHSENSORDATA END ===')
+      logger.info('=== FETCHSENSORDATA END ===')
     }
   }
   

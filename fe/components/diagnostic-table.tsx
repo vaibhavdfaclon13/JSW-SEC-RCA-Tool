@@ -11,6 +11,7 @@ import React from "react"
 import { ParameterGraphModal } from "./parameter-graph-modal"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { TagGraphModal } from "./tag-graph-modal"
+import logger from "@/lib/logger"
 
 interface DiagnosticTableProps {
   data: any[]
@@ -289,40 +290,62 @@ export function DiagnosticTable({
                         <h4 className="font-bold text-black mb-2 text-base">DETAILED ANALYSIS POINTS:</h4>
                         <ul className="space-y-2">
                           {Object.values(faultAnalysis.detailed_analysis_points || {}).map((point: any, idx: number) => {
-                            // Extract sensor IDs from the point data - ensure we have default values
-                            const sensorIds = point.sensor_ids && point.sensor_ids.length > 0 
-                              ? point.sensor_ids 
-                              : [`sensor_${idx}_1`, `sensor_${idx}_2`];
-                            const deviceId = asset.deviceId || asset.id || `device_${asset.name?.replace(/\s+/g, '_')}`;
-                            const endTime = asset.lastUpdated || new Date().toISOString();
+                            // Extract device ID and sensor IDs from the point data
+                            const deviceId = point.dev_id || '';
+                            const sensorIds = point.sensor_id || [];
+                            const endTime = asset.rawData?.invocationTime || new Date().toISOString();
+                            const isClickable = deviceId && sensorIds.length > 0;
                             
-                            console.log(`Analysis Point ${idx + 1}:`, {
-                              raw_point: point,
-                              extracted_sensor_ids: sensorIds,
-                              extracted_device_id: deviceId,
-                              extracted_end_time: endTime
-                            })
+                            logger.data(`Analysis Point ${idx + 1}`, {
+                              deviceId,
+                              sensorIds,
+                              endTime,
+                              isClickable
+                            });
 
                             return (
                               <li key={idx} className="flex items-start gap-2 text-base text-black">
-                                <button
-                                  className={
-                                    `rounded-full px-3 py-1 text-xs font-semibold mr-2 inline-block align-middle cursor-pointer hover:opacity-90 transition-opacity ` +
-                                    (point.tag?.toLowerCase() === 'critical'
-                                      ? 'bg-[#e53935] text-white'
-                                      : point.tag?.toLowerCase() === 'high'
-                                      ? 'bg-[#ffb300] text-black'
-                                      : point.tag?.toLowerCase() === 'medium'
-                                      ? 'bg-[#2196f3] text-white'
-                                      : point.tag?.toLowerCase() === 'low'
-                                      ? 'bg-[#43a047] text-white'
-                                      : 'bg-[#e0e7ef] text-black')
-                                  }
-                                  onClick={() => handleTagClick(point.tag, point.rca, deviceId, sensorIds, endTime)}
-                                >
-                                  {point.tag?.charAt(0).toUpperCase() + point.tag?.slice(1)}
-                                </button>
-                                <span className="align-middle">{point.rca}</span>
+                                {isClickable ? (
+                                  <button
+                                    className={
+                                      `rounded-full px-3 py-1 text-xs font-semibold mr-2 inline-block align-middle cursor-pointer hover:opacity-90 transition-opacity shadow-sm border border-white/30 hover:shadow-md transform hover:translate-y-[-1px] ` +
+                                      (point.tag?.toLowerCase() === 'critical'
+                                        ? 'bg-[#e53935] text-white'
+                                        : point.tag?.toLowerCase() === 'high'
+                                        ? 'bg-[#ffb300] text-black'
+                                        : point.tag?.toLowerCase() === 'medium'
+                                        ? 'bg-[#2196f3] text-white'
+                                        : point.tag?.toLowerCase() === 'low'
+                                        ? 'bg-[#43a047] text-white'
+                                        : 'bg-[#e0e7ef] text-black')
+                                    }
+                                    onClick={() => handleTagClick(point.tag, point.rca, deviceId, sensorIds, endTime)}
+                                    title={`View data for ${sensorIds.join(', ')}`}
+                                  >
+                                    {point.tag?.charAt(0).toUpperCase() + point.tag?.slice(1)}
+                                  </button>
+                                ) : (
+                                  <span
+                                    className={
+                                      `rounded-full px-3 py-1 text-xs font-semibold mr-2 inline-block align-middle opacity-90 border-dashed border ` +
+                                      (point.tag?.toLowerCase() === 'critical'
+                                        ? 'bg-[#e53935]/80 text-white border-white/20'
+                                        : point.tag?.toLowerCase() === 'high'
+                                        ? 'bg-[#ffb300]/80 text-black border-black/20'
+                                        : point.tag?.toLowerCase() === 'medium'
+                                        ? 'bg-[#2196f3]/80 text-white border-white/20'
+                                        : point.tag?.toLowerCase() === 'low'
+                                        ? 'bg-[#43a047]/80 text-white border-white/20'
+                                        : 'bg-[#e0e7ef]/80 text-black border-black/20')
+                                    }
+                                    title="No sensor data available for this tag"
+                                  >
+                                    {point.tag?.charAt(0).toUpperCase() + point.tag?.slice(1)}
+                                  </span>
+                                )}
+                                <div className="align-middle">
+                                  <span>{point.rca}</span>
+                                </div>
                               </li>
                             )
                           })}
